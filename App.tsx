@@ -20,19 +20,24 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      const [evs, stf, lgs] = await Promise.all([
-        prisma.event.findMany(),
-        prisma.staff.findMany(),
-        prisma.log.findMany()
-      ]);
-      setEvents(evs);
-      setStaff(stf);
-      setLogs(lgs);
-      
-      const savedUser = localStorage.getItem('current_user_session');
-      if (savedUser) setCurrentUser(JSON.parse(savedUser));
-      
-      setIsInitialized(true);
+      try {
+        const [evs, stf, lgs] = await Promise.all([
+          prisma.event.findMany(),
+          prisma.staff.findMany(),
+          prisma.log.findMany()
+        ]);
+        setEvents(evs);
+        setStaff(stf);
+        setLogs(lgs);
+        
+        const savedUser = localStorage.getItem('current_user_session');
+        if (savedUser) setCurrentUser(JSON.parse(savedUser));
+        
+        setIsInitialized(true);
+      } catch (error) {
+        console.error("Initialization failed:", error);
+        setIsInitialized(true); // Still allow entry to handle errors
+      }
     };
     init();
   }, []);
@@ -84,7 +89,7 @@ const App: React.FC = () => {
   };
 
   const deleteStaff = async (id: string) => {
-    if (!window.confirm("Permanently remove this team member?")) return;
+    if (!window.confirm("Permanently remove this team member? All historical data remains.")) return;
     const member = staff.find(s => s.id === id);
     await prisma.staff.delete(id);
     setStaff(await prisma.staff.findMany());
@@ -96,13 +101,13 @@ const App: React.FC = () => {
     
     if (staff.length === 0) {
       if (!isPasscodeCorrect) {
-        alert("Enter 'KEANDREW' to initialize the studio.");
+        alert("Initial Setup: Enter 'KEANDREW' to authorize the first admin.");
         return;
       }
       const firstAdmin: Staff = {
         id: 'admin-' + Date.now(),
         name,
-        contact: 'Studio Owner',
+        contact: 'Studio Manager',
         baseDesignation: 'Studio Owner',
         isAdmin: true
       };
@@ -121,7 +126,7 @@ const App: React.FC = () => {
       localStorage.setItem('current_user_session', JSON.stringify(user));
       logActivity('Login', `User ${found.name} signed in`);
     } else {
-      alert("Name not found. Contact an Admin.");
+      alert("Staff name not found in database. Contact an Administrator.");
     }
   };
 
@@ -133,8 +138,9 @@ const App: React.FC = () => {
   };
 
   if (!isInitialized) return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-      <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-6">
+      <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      <p className="text-indigo-400 font-black uppercase tracking-[0.4em] text-[10px]">Synchronizing Studio Data</p>
     </div>
   );
 
@@ -145,14 +151,14 @@ const App: React.FC = () => {
     return (
       <button 
         onClick={() => setActiveView(id)}
-        className={`flex flex-col items-center justify-center py-2 px-6 transition-all relative group ${
+        className={`flex flex-col items-center justify-center py-2 px-8 transition-all relative group ${
           activeView === id ? 'text-indigo-600' : 'text-slate-400 hover:text-indigo-400'
         }`}
       >
-        <Icon size={20} className={`mb-1 transition-transform ${activeView === id ? 'scale-110' : 'group-hover:scale-105'}`} />
-        <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+        <Icon size={22} className={`mb-1.5 transition-transform duration-500 ${activeView === id ? 'scale-110 -translate-y-0.5' : 'group-hover:scale-105'}`} />
+        <span className="text-[10px] font-black uppercase tracking-[0.2em]">{label}</span>
         {activeView === id && (
-          <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-indigo-600 rounded-t-full" />
+          <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-1 bg-indigo-600 rounded-t-full shadow-[0_-4px_10px_rgba(79,70,229,0.4)]" />
         )}
       </button>
     );
@@ -160,62 +166,69 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 selection:bg-indigo-100">
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-20">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-xl flex items-center justify-center text-white font-black text-xl rotate-3 shadow-lg shadow-indigo-100">K</div>
-            <div className="hidden sm:block">
-              <h1 className="font-black text-lg text-slate-900 tracking-tight uppercase">Kean Drew Studio</h1>
-              <div className="flex items-center gap-2">
-                 <span className={`text-[9px] font-black uppercase tracking-widest ${currentUser.isAdmin ? 'text-indigo-600' : 'text-slate-400'}`}>
-                  {currentUser.isAdmin ? 'Administrator' : 'Staff Access'}
+      <header className="bg-white/80 backdrop-blur-xl border-b border-slate-100 sticky top-0 z-40">
+        <div className="max-w-[1440px] mx-auto px-8 flex items-center justify-between h-24">
+          <div className="flex items-center gap-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[1.25rem] flex items-center justify-center text-white font-black text-2xl rotate-3 shadow-xl shadow-indigo-100/50">K</div>
+            <div className="hidden lg:block">
+              <h1 className="font-black text-xl text-slate-900 tracking-tight uppercase">Kean Drew Studio</h1>
+              <div className="flex items-center gap-2.5 mt-0.5">
+                 <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${currentUser.isAdmin ? 'text-indigo-600' : 'text-slate-400'}`}>
+                  {currentUser.isAdmin ? 'System Administrator' : 'Staff Member'}
                 </span>
-                <span className="w-1 h-1 rounded-full bg-emerald-500" />
-                <span className="text-[9px] text-slate-500 font-bold uppercase">{currentUser.name}</span>
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{currentUser.name}</span>
               </div>
             </div>
           </div>
-          <nav className="flex items-center bg-slate-100/50 rounded-2xl p-1 border border-slate-200/50">
+          
+          <nav className="flex items-center bg-slate-100/50 rounded-[2rem] p-1.5 border border-slate-200/50">
             <NavItem id="dashboard" icon={Icons.Dashboard} label="Pulse" />
             <NavItem id="calendar" icon={Icons.Calendar} label="Bookings" />
-            <NavItem id="staff" icon={Icons.Staff} label="Team" />
-            <NavItem id="logs" icon={Icons.Work} label="History" adminOnly />
-            <button onClick={handleLogout} className="flex flex-col items-center justify-center py-2 px-6 text-slate-400 hover:text-rose-500 transition-colors">
-              <Icons.Prev size={20} className="mb-1" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Exit</span>
+            <NavItem id="staff" icon={Icons.Staff} label="Crew" />
+            <NavItem id="logs" icon={Icons.Work} label="Vault" adminOnly />
+            <div className="w-px h-10 bg-slate-200 mx-2 hidden sm:block" />
+            <button onClick={handleLogout} className="flex flex-col items-center justify-center py-2 px-6 text-slate-400 hover:text-rose-500 transition-all group">
+              <Icons.Prev size={22} className="mb-1.5 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Exit</span>
             </button>
           </nav>
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-10">
-        {activeView === 'dashboard' && <DashboardView events={events} staff={staff} />}
-        {activeView === 'calendar' && (
-          <CalendarView 
-            events={events} 
-            staff={staff} 
-            isAdmin={currentUser.isAdmin}
-            onAddEvent={addEvent} 
-            onUpdateEvent={updateEvent} 
-            onDeleteEvent={deleteEvent} 
-          />
-        )}
-        {activeView === 'staff' && (
-          <StaffView 
-            staff={staff} 
-            events={events}
-            isAdmin={currentUser.isAdmin}
-            onAddStaff={addStaff} 
-            onUpdateStaff={updateStaff} 
-            onDeleteStaff={deleteStaff} 
-            onUpdateEvent={updateEvent}
-          />
-        )}
-        {activeView === 'logs' && currentUser.isAdmin && <ActivityLogsView logs={logs} />}
+      <main className="flex-1 max-w-[1440px] mx-auto w-full px-8 py-12">
+        <div className="animate-fadeIn transition-opacity duration-500">
+          {activeView === 'dashboard' && <DashboardView events={events} staff={staff} />}
+          {activeView === 'calendar' && (
+            <CalendarView 
+              events={events} 
+              staff={staff} 
+              isAdmin={currentUser.isAdmin}
+              onAddEvent={addEvent} 
+              onUpdateEvent={updateEvent} 
+              onDeleteEvent={deleteEvent} 
+            />
+          )}
+          {activeView === 'staff' && (
+            <StaffView 
+              staff={staff} 
+              events={events}
+              isAdmin={currentUser.isAdmin}
+              onAddStaff={addStaff} 
+              onUpdateStaff={updateStaff} 
+              onDeleteStaff={deleteStaff} 
+              onUpdateEvent={updateEvent}
+            />
+          )}
+          {activeView === 'logs' && currentUser.isAdmin && <ActivityLogsView logs={logs} />}
+        </div>
       </main>
 
-      <footer className="max-w-7xl mx-auto w-full px-6 py-10 text-center border-t border-slate-100">
-        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-300">Kean Drew Studio Manager • Prisma Local Engine • Built-in DB</p>
+      <footer className="max-w-[1440px] mx-auto w-full px-8 py-16 text-center">
+        <div className="h-px bg-slate-100 mb-10 w-full" />
+        <p className="text-[10px] font-black uppercase tracking-[0.6em] text-slate-300">
+          Kean Drew Studio • Prisma Engine v1.0 • Built-in SQL Persistence
+        </p>
       </footer>
     </div>
   );
