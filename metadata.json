@@ -1,0 +1,5 @@
+{
+  "name": "CALENDAR BOOKINGS",
+  "description": "A comprehensive studio management application featuring calendar bookings, staff management, financial dashboards, and automated local persistence.",
+  "requestFramePermissions": []
+}
