@@ -15,7 +15,8 @@ import {
   DollarSign, 
   UserPlus,
   Clock,
-  Briefcase
+  Briefcase,
+  Github
 } from 'lucide-react';
 
 export const Icons = {
@@ -33,7 +34,8 @@ export const Icons = {
   Money: DollarSign,
   AddUser: UserPlus,
   Time: Clock,
-  Work: Briefcase
+  Work: Briefcase,
+  Github: Github
 };
 
 export const DESIGNATIONS = [

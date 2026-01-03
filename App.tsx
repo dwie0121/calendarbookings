@@ -6,17 +6,24 @@ import DashboardView from './components/DashboardView';
 import CalendarView from './components/CalendarView';
 import StaffView from './components/StaffView';
 import ActivityLogsView from './components/ActivityLogsView';
-import LoginView from './components/LoginView';
 
-const ADMIN_PASSCODE = 'KEANDREW';
+const DEFAULT_USER: Staff = {
+  id: 'system-admin',
+  name: 'Studio Manager',
+  contact: 'Administrative',
+  baseDesignation: 'Studio Owner',
+  isAdmin: true
+};
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewMode>('dashboard');
   const [events, setEvents] = useState<StudioEvent[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [currentUser, setCurrentUser] = useState<Staff | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Sign-in options removed: App now uses a persistent administrative session.
+  const currentUser = DEFAULT_USER;
 
   useEffect(() => {
     const init = async () => {
@@ -30,20 +37,22 @@ const App: React.FC = () => {
         setStaff(stf);
         setLogs(lgs);
         
-        const savedUser = localStorage.getItem('current_user_session');
-        if (savedUser) setCurrentUser(JSON.parse(savedUser));
+        // Ensure the default user exists in the staff list if it's empty
+        if (stf.length === 0) {
+          await prisma.staff.create(DEFAULT_USER);
+          setStaff([DEFAULT_USER]);
+        }
         
         setIsInitialized(true);
       } catch (error) {
         console.error("Initialization failed:", error);
-        setIsInitialized(true); // Still allow entry to handle errors
+        setIsInitialized(true); 
       }
     };
     init();
   }, []);
 
   const logActivity = async (action: string, details: string) => {
-    if (!currentUser) return;
     const newLog: ActivityLog = {
       id: Date.now().toString(),
       userId: currentUser.id,
@@ -96,55 +105,12 @@ const App: React.FC = () => {
     logActivity('Deleted Team Member', `Removed: ${member?.name || id}`);
   };
 
-  const handleLogin = (name: string, passcode?: string) => {
-    const isPasscodeCorrect = passcode?.toUpperCase() === ADMIN_PASSCODE;
-    
-    if (staff.length === 0) {
-      if (!isPasscodeCorrect) {
-        alert("Initial Setup: Enter 'KEANDREW' to authorize the first admin.");
-        return;
-      }
-      const firstAdmin: Staff = {
-        id: 'admin-' + Date.now(),
-        name,
-        contact: 'Studio Manager',
-        baseDesignation: 'Studio Owner',
-        isAdmin: true
-      };
-      prisma.staff.create(firstAdmin).then(() => {
-        setStaff([firstAdmin]);
-        setCurrentUser(firstAdmin);
-        localStorage.setItem('current_user_session', JSON.stringify(firstAdmin));
-      });
-      return;
-    }
-
-    const found = staff.find(s => s.name.toLowerCase().includes(name.toLowerCase()));
-    if (found) {
-      const user = { ...found, isAdmin: found.isAdmin || isPasscodeCorrect };
-      setCurrentUser(user);
-      localStorage.setItem('current_user_session', JSON.stringify(user));
-      logActivity('Login', `User ${found.name} signed in`);
-    } else {
-      alert("Staff name not found in database. Contact an Administrator.");
-    }
-  };
-
-  const handleLogout = () => {
-    logActivity('Logout', `${currentUser?.name} signed out`);
-    setCurrentUser(null);
-    localStorage.removeItem('current_user_session');
-    setActiveView('dashboard');
-  };
-
   if (!isInitialized) return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-6">
       <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
       <p className="text-indigo-400 font-black uppercase tracking-[0.4em] text-[10px]">Synchronizing Studio Data</p>
     </div>
   );
-
-  if (!currentUser) return <LoginView onLogin={handleLogin} />;
 
   const NavItem = ({ icon: Icon, label, id, adminOnly }: { icon: any, label: string, id: ViewMode, adminOnly?: boolean }) => {
     if (adminOnly && !currentUser?.isAdmin) return null;
@@ -173,8 +139,8 @@ const App: React.FC = () => {
             <div className="hidden lg:block">
               <h1 className="font-black text-xl text-slate-900 tracking-tight uppercase">Kean Drew Studio</h1>
               <div className="flex items-center gap-2.5 mt-0.5">
-                 <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${currentUser.isAdmin ? 'text-indigo-600' : 'text-slate-400'}`}>
-                  {currentUser.isAdmin ? 'System Administrator' : 'Staff Member'}
+                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-600">
+                  System Administrator
                 </span>
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
                 <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{currentUser.name}</span>
@@ -187,11 +153,6 @@ const App: React.FC = () => {
             <NavItem id="calendar" icon={Icons.Calendar} label="Bookings" />
             <NavItem id="staff" icon={Icons.Staff} label="Crew" />
             <NavItem id="logs" icon={Icons.Work} label="Vault" adminOnly />
-            <div className="w-px h-10 bg-slate-200 mx-2 hidden sm:block" />
-            <button onClick={handleLogout} className="flex flex-col items-center justify-center py-2 px-6 text-slate-400 hover:text-rose-500 transition-all group">
-              <Icons.Prev size={22} className="mb-1.5 group-hover:-translate-x-1 transition-transform" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Exit</span>
-            </button>
           </nav>
         </div>
       </header>

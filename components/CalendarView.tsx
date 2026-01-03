@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { StudioEvent, Staff, CalendarViewType } from '../types';
 import { Icons } from '../constants';
 import EventModal from './EventModal';
-import { db } from '../lib/db';
 import { 
   format, 
   addMonths, 
@@ -29,9 +28,7 @@ const CalendarView: React.FC<CalendarProps> = ({ events, staff, isAdmin, onAddEv
   const [selectedEvent, setSelectedEvent] = useState<StudioEvent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [initialDate, setInitialDate] = useState<string | undefined>();
-  const [isRestoring, setIsRestoring] = useState(false);
   
-  /* Fixed: Derived monthStart and calendarStart manually to avoid missing date-fns exports */
   const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const monthEnd = endOfMonth(monthStart);
   
@@ -60,18 +57,6 @@ const CalendarView: React.FC<CalendarProps> = ({ events, staff, isAdmin, onAddEv
 
   const navigate = (direction: 'next' | 'prev') => {
     setCurrentDate(addMonths(currentDate, direction === 'next' ? 1 : -1));
-  };
-
-  const handleRestore = async () => {
-    if (!window.confirm("Restore to last known good state? This resets the database to the previous session backup.")) return;
-    setIsRestoring(true);
-    const success = await db.restoreLastState();
-    if (success) {
-      window.location.reload();
-    } else {
-      alert("No backup snapshot found.");
-      setIsRestoring(false);
-    }
   };
 
   return (
@@ -111,17 +96,6 @@ const CalendarView: React.FC<CalendarProps> = ({ events, staff, isAdmin, onAddEv
         </div>
 
         <div className="flex items-center gap-4">
-          {isAdmin && (
-            <button 
-              onClick={handleRestore}
-              disabled={isRestoring}
-              className="px-6 py-4 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-[10px] border border-slate-200 text-slate-500 hover:bg-white hover:border-indigo-200 hover:text-indigo-600 transition-all flex items-center gap-3 active:scale-95 group"
-              title="Emergency Restore"
-            >
-              <Icons.Work size={16} className={`${isRestoring ? 'animate-spin' : 'group-hover:rotate-12 transition-transform'}`} />
-              Restore
-            </button>
-          )}
           {isAdmin && (
             <button 
               onClick={() => { setSelectedEvent(null); setInitialDate(format(new Date(), 'yyyy-MM-dd')); setIsModalOpen(true); }}

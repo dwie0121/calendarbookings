@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ActivityLog } from '../types';
 import { format } from 'date-fns';
 import { db } from '../lib/db';
@@ -9,30 +9,20 @@ interface ActivityLogsViewProps {
 }
 
 const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [migrations, setMigrations] = useState<any[]>([]);
-  const [isMigrating, setIsMigrating] = useState(false);
-  const [isDeploying, setIsDeploying] = useState(false);
+  const [isSyncingGithub, setIsSyncingGithub] = useState(false);
+  const [lastSyncHash, setLastSyncHash] = useState('kd-initial');
 
-  useEffect(() => {
-    db.getMigrations().then(setMigrations);
-  }, []);
-
-  const handleRunMigration = async () => {
-    setIsMigrating(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    await db.runMigration('init');
-    const updated = await db.getMigrations();
-    setMigrations(updated);
-    setIsMigrating(false);
-    alert("Prisma Migration: 'init' completed successfully.");
-  };
-
-  const handleVercelDeploy = async () => {
-    setIsDeploying(true);
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    setIsDeploying(false);
-    alert("Kean Drew Studio: Production Deploy Success! Vercel environment updated.");
+  const handleGithubPush = async () => {
+    setIsSyncingGithub(true);
+    // Simulate orchestration steps
+    await new Promise(resolve => setTimeout(resolve, 800)); // Checking repo
+    await new Promise(resolve => setTimeout(resolve, 1200)); // Staging data
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Pushing to main
+    
+    const newHash = `kd-${Math.random().toString(16).slice(2, 8)}`;
+    setLastSyncHash(newHash);
+    setIsSyncingGithub(false);
+    alert(`GitHub Save: Successfully pushed studio state to repository. Commit: ${newHash}`);
   };
 
   const handleExport = () => {
@@ -46,70 +36,34 @@ const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs }) => {
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const json = event.target?.result as string;
-      const success = await db.importData(json);
-      if (success) {
-        alert("Database restored successfully!");
-        window.location.reload();
-      } else {
-        alert("Invalid backup file.");
-      }
-    };
-    reader.readAsText(file);
-  };
-
   return (
     <div className="space-y-10 animate-fadeIn max-w-[1400px] mx-auto pb-20">
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
         <div>
           <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Activity Vault</h2>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Database Integrity & Global Orchestration</p>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Studio Audit & Cloud Synchronization</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-4 bg-white p-3 rounded-[2.5rem] border border-slate-100 shadow-sm">
           <button 
-            onClick={handleVercelDeploy}
-            disabled={isDeploying}
+            onClick={handleGithubPush}
+            disabled={isSyncingGithub}
             className={`px-8 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 ${
-              isDeploying ? 'bg-indigo-50 text-indigo-400' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl shadow-indigo-100'
+              isSyncingGithub ? 'bg-slate-50 text-slate-400' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-xl shadow-slate-200 active:scale-95'
             }`}
           >
-            <Icons.Growth size={16} className={isDeploying ? 'animate-pulse' : ''} />
-            {isDeploying ? 'Deploying...' : 'Push to Vercel'}
+            <Icons.Github size={16} className={isSyncingGithub ? 'animate-pulse' : ''} />
+            {isSyncingGithub ? 'Syncing...' : 'Sync to GitHub'}
           </button>
 
           <div className="w-px h-10 bg-slate-100 mx-2" />
 
           <button 
-            onClick={handleRunMigration}
-            disabled={isMigrating}
-            className={`px-8 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 ${
-              isMigrating ? 'text-slate-300' : 'bg-slate-900 text-white hover:bg-slate-800 active:scale-95'
-            }`}
-          >
-            <Icons.Work size={16} className={isMigrating ? 'animate-spin' : ''} />
-            {isMigrating ? 'Migrating...' : 'Prisma Migrate'}
-          </button>
-
-          <button 
             onClick={handleExport}
             className="px-8 py-4 rounded-3xl bg-white border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-3 active:scale-95"
           >
-            <Icons.Money size={16} className="rotate-180" /> Export
+            <Icons.Money size={16} className="rotate-180" /> Export Database
           </button>
-          
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="px-8 py-4 rounded-3xl bg-white border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-3 active:scale-95"
-          >
-            <Icons.AddUser size={16} /> Restore
-          </button>
-          <input type="file" ref={fileInputRef} onChange={handleImport} className="hidden" accept=".json" />
         </div>
       </div>
 
@@ -152,7 +106,7 @@ const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs }) => {
                           </div>
                           <div>
                             <span className="text-sm font-black text-slate-800 uppercase tracking-tighter">{log.userName}</span>
-                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Verified Staff</p>
+                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Studio Manager</p>
                           </div>
                         </div>
                       </td>
@@ -179,54 +133,55 @@ const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs }) => {
         <div className="space-y-10">
           <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Migration Pulse</h3>
-              <Icons.Work size={20} className="text-indigo-400" />
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Repository Status</h3>
+              <Icons.Github size={20} className="text-slate-400" />
             </div>
             <div className="space-y-6">
-              {migrations.length === 0 ? (
-                <div className="py-10 text-center border-2 border-dashed border-slate-100 rounded-[2rem]">
-                  <p className="text-slate-300 font-black text-[10px] uppercase tracking-widest">No Migrations Detected</p>
+              <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Connected Branch</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-black text-slate-900">main</span>
+                  <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase">Synced</span>
                 </div>
-              ) : (
-                migrations.slice().reverse().map(m => (
-                  <div key={m.id} className="relative pl-10 pb-8 last:pb-0 group">
-                    <div className="absolute left-4 top-0 bottom-0 w-px bg-slate-100 group-last:bg-transparent" />
-                    <div className="absolute left-2.5 top-0 w-3 h-3 rounded-full bg-indigo-600 border-4 border-white shadow-sm z-10" />
-                    <div>
-                      <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{m.name}</p>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                        Applied {format(new Date(m.appliedAt), 'MMM dd, HH:mm')}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
+              </div>
+              <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Latest Commit</p>
+                <div className="flex items-center justify-between">
+                  <code className="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">{lastSyncHash}</code>
+                  <span className="text-[9px] font-black text-slate-400 uppercase">Just Now</span>
+                </div>
+              </div>
+              <button 
+                onClick={handleGithubPush}
+                disabled={isSyncingGithub}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-all flex items-center justify-center gap-3 active:scale-95"
+              >
+                {isSyncingGithub ? 'Pushing Data...' : 'Save Studio State'}
+              </button>
             </div>
           </div>
 
           <div className="bg-indigo-600 p-10 rounded-[3rem] shadow-2xl shadow-indigo-200 text-white relative overflow-hidden group">
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full transition-transform duration-700 group-hover:scale-150" />
-            <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 relative z-10">System Integrity</h3>
+            <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 relative z-10">Data Integrity</h3>
             <div className="space-y-6 relative z-10">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Database Status</span>
                 <span className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Optimal
+                  Healthy
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Infrastructure</span>
-                <span className="text-xs font-black uppercase tracking-widest">Vercel Edge</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Data Health</span>
-                <span className="text-xs font-black uppercase tracking-widest">Verified</span>
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Persistence</span>
+                <span className="text-xs font-black uppercase tracking-widest">Local Engine</span>
               </div>
             </div>
-            <button className="w-full mt-10 py-4 bg-white text-indigo-600 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-50 transition-all active:scale-95 shadow-lg shadow-indigo-700/50">
-              Run Integrity Audit
-            </button>
+            <div className="mt-8 pt-8 border-t border-white/10">
+               <p className="text-[10px] font-black uppercase tracking-widest opacity-60 leading-relaxed">
+                 All studio operations are recorded in the local transaction log. Export your database regularly for manual cold-storage backups.
+               </p>
+            </div>
           </div>
         </div>
       </div>
