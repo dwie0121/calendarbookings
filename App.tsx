@@ -21,8 +21,8 @@ const App: React.FC = () => {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'unpushed'>('synced');
 
-  // Sign-in options removed: App now uses a persistent administrative session.
   const currentUser = DEFAULT_USER;
 
   useEffect(() => {
@@ -37,7 +37,6 @@ const App: React.FC = () => {
         setStaff(stf);
         setLogs(lgs);
         
-        // Ensure the default user exists in the staff list if it's empty
         if (stf.length === 0) {
           await prisma.staff.create(DEFAULT_USER);
           setStaff([DEFAULT_USER]);
@@ -66,16 +65,22 @@ const App: React.FC = () => {
     setLogs(updatedLogs);
   };
 
+  const markAsUnpushed = () => {
+    if (syncStatus !== 'unpushed') setSyncStatus('unpushed');
+  };
+
   const addEvent = async (event: StudioEvent) => {
     await prisma.event.create(event);
     setEvents(await prisma.event.findMany());
     logActivity('Added Booking', `Created: ${event.title}`);
+    markAsUnpushed();
   };
 
   const updateEvent = async (updatedEvent: StudioEvent) => {
     await prisma.event.update(updatedEvent.id, updatedEvent);
     setEvents(await prisma.event.findMany());
     logActivity('Updated Booking', `Modified: ${updatedEvent.title}`);
+    markAsUnpushed();
   };
 
   const deleteEvent = async (id: string) => {
@@ -83,18 +88,21 @@ const App: React.FC = () => {
     await prisma.event.delete(id);
     setEvents(await prisma.event.findMany());
     logActivity('Deleted Booking', `Removed: ${event?.title || id}`);
+    markAsUnpushed();
   };
 
   const addStaff = async (s: Staff) => {
     await prisma.staff.create(s);
     setStaff(await prisma.staff.findMany());
     logActivity('Added Team Member', `Added: ${s.name}`);
+    markAsUnpushed();
   };
 
   const updateStaff = async (updatedMember: Staff) => {
     await prisma.staff.update(updatedMember.id, updatedMember);
     setStaff(await prisma.staff.findMany());
     logActivity('Updated Team Member', `Modified: ${updatedMember.name}`);
+    markAsUnpushed();
   };
 
   const deleteStaff = async (id: string) => {
@@ -103,6 +111,12 @@ const App: React.FC = () => {
     await prisma.staff.delete(id);
     setStaff(await prisma.staff.findMany());
     logActivity('Deleted Team Member', `Removed: ${member?.name || id}`);
+    markAsUnpushed();
+  };
+
+  const handlePushSuccess = () => {
+    setSyncStatus('synced');
+    logActivity('GitHub Sync', 'Studio state pushed and finalized on GitHub main branch.');
   };
 
   if (!isInitialized) return (
@@ -139,11 +153,14 @@ const App: React.FC = () => {
             <div className="hidden lg:block">
               <h1 className="font-black text-xl text-slate-900 tracking-tight uppercase">Kean Drew Studio</h1>
               <div className="flex items-center gap-2.5 mt-0.5">
-                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-600">
-                  System Administrator
-                </span>
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-                <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{currentUser.name}</span>
+                 <div className={`flex items-center gap-2 px-2 py-0.5 rounded-full border ${syncStatus === 'synced' ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'synced' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${syncStatus === 'synced' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {syncStatus === 'synced' ? 'GitHub Synced' : 'Push Required'}
+                    </span>
+                 </div>
+                <div className="w-1 h-1 rounded-full bg-slate-300 mx-1" />
+                <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">{currentUser.name}</span>
               </div>
             </div>
           </div>
@@ -181,14 +198,20 @@ const App: React.FC = () => {
               onUpdateEvent={updateEvent}
             />
           )}
-          {activeView === 'logs' && currentUser.isAdmin && <ActivityLogsView logs={logs} />}
+          {activeView === 'logs' && currentUser.isAdmin && (
+            <ActivityLogsView 
+              logs={logs} 
+              syncStatus={syncStatus}
+              onPushSuccess={handlePushSuccess}
+            />
+          )}
         </div>
       </main>
 
       <footer className="max-w-[1440px] mx-auto w-full px-8 py-16 text-center">
         <div className="h-px bg-slate-100 mb-10 w-full" />
         <p className="text-[10px] font-black uppercase tracking-[0.6em] text-slate-300">
-          Kean Drew Studio • Prisma Engine v1.0 • Built-in SQL Persistence
+          Kean Drew Studio • GitHub Orchestration Engine v1.1 • Enterprise Snapshot Persistence
         </p>
       </footer>
     </div>

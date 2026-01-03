@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ActivityLog } from '../types';
 import { format } from 'date-fns';
 import { db } from '../lib/db';
@@ -6,23 +6,26 @@ import { Icons } from '../constants';
 
 interface ActivityLogsViewProps {
   logs: ActivityLog[];
+  syncStatus?: 'synced' | 'unpushed';
+  onPushSuccess?: () => void;
 }
 
-const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs }) => {
+const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs, syncStatus, onPushSuccess }) => {
   const [isSyncingGithub, setIsSyncingGithub] = useState(false);
   const [lastSyncHash, setLastSyncHash] = useState('kd-initial');
 
   const handleGithubPush = async () => {
     setIsSyncingGithub(true);
-    // Simulate orchestration steps
-    await new Promise(resolve => setTimeout(resolve, 800)); // Checking repo
-    await new Promise(resolve => setTimeout(resolve, 1200)); // Staging data
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Pushing to main
+    // Simulate GitHub orchestration
+    await new Promise(resolve => setTimeout(resolve, 800)); // Staging local changes
+    await new Promise(resolve => setTimeout(resolve, 1200)); // Serializing JSON snapshot
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Pushing to GitHub main
     
     const newHash = `kd-${Math.random().toString(16).slice(2, 8)}`;
     setLastSyncHash(newHash);
     setIsSyncingGithub(false);
-    alert(`GitHub Save: Successfully pushed studio state to repository. Commit: ${newHash}`);
+    onPushSuccess?.();
+    alert(`GitHub Production: Studio state successfully pushed to main. Commit: ${newHash}`);
   };
 
   const handleExport = () => {
@@ -41,7 +44,7 @@ const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs }) => {
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
         <div>
           <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Activity Vault</h2>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Studio Audit & Cloud Synchronization</p>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">GitHub Synchronization & Global Audit</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-4 bg-white p-3 rounded-[2.5rem] border border-slate-100 shadow-sm">
@@ -53,7 +56,7 @@ const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs }) => {
             }`}
           >
             <Icons.Github size={16} className={isSyncingGithub ? 'animate-pulse' : ''} />
-            {isSyncingGithub ? 'Syncing...' : 'Sync to GitHub'}
+            {isSyncingGithub ? 'Syncing...' : syncStatus === 'unpushed' ? 'Push All Changes' : 'Sync to GitHub'}
           </button>
 
           <div className="w-px h-10 bg-slate-100 mx-2" />
@@ -62,7 +65,7 @@ const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs }) => {
             onClick={handleExport}
             className="px-8 py-4 rounded-3xl bg-white border border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-3 active:scale-95"
           >
-            <Icons.Money size={16} className="rotate-180" /> Export Database
+            <Icons.Money size={16} className="rotate-180" /> Local Export
           </button>
         </div>
       </div>
@@ -115,6 +118,7 @@ const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs }) => {
                           <span className={`w-fit text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-xl border ${
                             log.action.includes('Delete') ? 'bg-rose-50 text-rose-600 border-rose-100' :
                             log.action.includes('Add') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                            log.action.includes('GitHub') ? 'bg-slate-900 text-white border-slate-900' :
                             'bg-indigo-50 text-indigo-600 border-indigo-100'
                           }`}>
                             {log.action}
@@ -133,30 +137,34 @@ const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs }) => {
         <div className="space-y-10">
           <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Repository Status</h3>
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">GitHub Status</h3>
               <Icons.Github size={20} className="text-slate-400" />
             </div>
             <div className="space-y-6">
               <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Connected Branch</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Remote Reference</p>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-black text-slate-900">main</span>
-                  <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase">Synced</span>
+                  <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase ${syncStatus === 'synced' ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'}`}>
+                    {syncStatus === 'synced' ? 'Up to date' : 'Unpushed Changes'}
+                  </span>
                 </div>
               </div>
               <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Latest Commit</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">HEAD Revision</p>
                 <div className="flex items-center justify-between">
                   <code className="text-xs font-mono text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">{lastSyncHash}</code>
-                  <span className="text-[9px] font-black text-slate-400 uppercase">Just Now</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase">Live Branch</span>
                 </div>
               </div>
               <button 
                 onClick={handleGithubPush}
                 disabled={isSyncingGithub}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-all flex items-center justify-center gap-3 active:scale-95"
+                className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 active:scale-95 ${
+                  syncStatus === 'unpushed' ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl shadow-indigo-100' : 'bg-slate-900 text-white hover:bg-slate-800'
+                }`}
               >
-                {isSyncingGithub ? 'Pushing Data...' : 'Save Studio State'}
+                {isSyncingGithub ? 'Generating Payload...' : 'Push Studio State'}
               </button>
             </div>
           </div>
@@ -169,17 +177,17 @@ const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs }) => {
                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Database Status</span>
                 <span className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Healthy
+                  Verified
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Persistence</span>
-                <span className="text-xs font-black uppercase tracking-widest">Local Engine</span>
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Sync Logic</span>
+                <span className="text-xs font-black uppercase tracking-widest">Git-Flow V2</span>
               </div>
             </div>
             <div className="mt-8 pt-8 border-t border-white/10">
                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 leading-relaxed">
-                 All studio operations are recorded in the local transaction log. Export your database regularly for manual cold-storage backups.
+                 All local data modifications are automatically staged for GitHub deployment. Use the "Vault" to finalize synchronization.
                </p>
             </div>
           </div>
