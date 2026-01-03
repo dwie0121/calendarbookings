@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Staff, StudioEvent, ViewMode, ActivityLog } from './types';
 import { Icons } from './constants';
-import { db } from './lib/db';
+import { prisma } from './lib/prisma';
 import DashboardView from './components/DashboardView';
 import CalendarView from './components/CalendarView';
 import StaffView from './components/StaffView';
@@ -18,18 +18,20 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<Staff | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize data
   useEffect(() => {
     const init = async () => {
       const [evs, stf, lgs] = await Promise.all([
-        db.getEvents(),
-        db.getStaff(),
-        db.getLogs()
+        prisma.event.findMany(),
+        prisma.staff.findMany(),
+        prisma.log.findMany()
       ]);
       setEvents(evs);
       setStaff(stf);
       setLogs(lgs);
-      setCurrentUser(db.getCurrentUser());
+      
+      const savedUser = localStorage.getItem('current_user_session');
+      if (savedUser) setCurrentUser(JSON.parse(savedUser));
+      
       setIsInitialized(true);
     };
     init();
@@ -45,76 +47,70 @@ const App: React.FC = () => {
       details,
       timestamp: new Date().toISOString(),
     };
-    const updatedLogs = [newLog, ...logs].slice(0, 100);
+    await prisma.log.create(newLog);
+    const updatedLogs = await prisma.log.findMany();
     setLogs(updatedLogs);
-    await db.saveLogs(updatedLogs);
   };
 
   const addEvent = async (event: StudioEvent) => {
-    const updated = [...events, event];
-    setEvents(updated);
-    await db.saveEvents(updated);
+    await prisma.event.create(event);
+    setEvents(await prisma.event.findMany());
     logActivity('Added Booking', `Created: ${event.title}`);
   };
 
   const updateEvent = async (updatedEvent: StudioEvent) => {
-    const updated = events.map(e => e.id === updatedEvent.id ? updatedEvent : e);
-    setEvents(updated);
-    await db.saveEvents(updated);
+    await prisma.event.update(updatedEvent.id, updatedEvent);
+    setEvents(await prisma.event.findMany());
     logActivity('Updated Booking', `Modified: ${updatedEvent.title}`);
   };
 
   const deleteEvent = async (id: string) => {
     const event = events.find(e => e.id === id);
-    const updated = events.filter(e => e.id !== id);
-    setEvents(updated);
-    await db.saveEvents(updated);
+    await prisma.event.delete(id);
+    setEvents(await prisma.event.findMany());
     logActivity('Deleted Booking', `Removed: ${event?.title || id}`);
   };
 
   const addStaff = async (s: Staff) => {
-    const updated = [...staff, s];
-    setStaff(updated);
-    await db.saveStaff(updated);
+    await prisma.staff.create(s);
+    setStaff(await prisma.staff.findMany());
     logActivity('Added Team Member', `Added: ${s.name}`);
   };
 
   const updateStaff = async (updatedMember: Staff) => {
-    const updated = staff.map(s => s.id === updatedMember.id ? updatedMember : s);
-    setStaff(updated);
-    await db.saveStaff(updated);
+    await prisma.staff.update(updatedMember.id, updatedMember);
+    setStaff(await prisma.staff.findMany());
     logActivity('Updated Team Member', `Modified: ${updatedMember.name}`);
   };
 
   const deleteStaff = async (id: string) => {
-    if (!window.confirm("Are you sure? This will permanently remove this team member.")) return;
+    if (!window.confirm("Permanently remove this team member?")) return;
     const member = staff.find(s => s.id === id);
-    const updated = staff.filter(s => s.id !== id);
-    setStaff(updated);
-    await db.saveStaff(updated);
+    await prisma.staff.delete(id);
+    setStaff(await prisma.staff.findMany());
     logActivity('Deleted Team Member', `Removed: ${member?.name || id}`);
   };
 
   const handleLogin = (name: string, passcode?: string) => {
     const isPasscodeCorrect = passcode?.toUpperCase() === ADMIN_PASSCODE;
     
-    // Initial Setup
     if (staff.length === 0) {
       if (!isPasscodeCorrect) {
-        alert("Enter the Admin Passcode (KEANDREW) to initialize your studio.");
+        alert("Enter 'KEANDREW' to initialize the studio.");
         return;
       }
       const firstAdmin: Staff = {
         id: 'admin-' + Date.now(),
         name,
-        contact: 'Studio Manager',
+        contact: 'Studio Owner',
         baseDesignation: 'Studio Owner',
         isAdmin: true
       };
-      setStaff([firstAdmin]);
-      db.saveStaff([firstAdmin]);
-      setCurrentUser(firstAdmin);
-      db.setCurrentUser(firstAdmin);
+      prisma.staff.create(firstAdmin).then(() => {
+        setStaff([firstAdmin]);
+        setCurrentUser(firstAdmin);
+        localStorage.setItem('current_user_session', JSON.stringify(firstAdmin));
+      });
       return;
     }
 
@@ -122,17 +118,17 @@ const App: React.FC = () => {
     if (found) {
       const user = { ...found, isAdmin: found.isAdmin || isPasscodeCorrect };
       setCurrentUser(user);
-      db.setCurrentUser(user);
+      localStorage.setItem('current_user_session', JSON.stringify(user));
       logActivity('Login', `User ${found.name} signed in`);
     } else {
-      alert("Name not found. Please contact an Admin to be added to the team.");
+      alert("Name not found. Contact an Admin.");
     }
   };
 
   const handleLogout = () => {
     logActivity('Logout', `${currentUser?.name} signed out`);
     setCurrentUser(null);
-    db.setCurrentUser(null);
+    localStorage.removeItem('current_user_session');
     setActiveView('dashboard');
   };
 
@@ -219,7 +215,7 @@ const App: React.FC = () => {
       </main>
 
       <footer className="max-w-7xl mx-auto w-full px-6 py-10 text-center border-t border-slate-100">
-        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-300">Kean Drew Studio Manager • Engine v1.0 • Built-in DB</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-300">Kean Drew Studio Manager • Prisma Local Engine • Built-in DB</p>
       </footer>
     </div>
   );

@@ -1,101 +1,80 @@
+
 import { StudioEvent, Staff, ActivityLog } from '../types';
 
-const STORAGE_KEYS = {
-  EVENTS: 'kean_drew_events_v1',
-  STAFF: 'kean_drew_staff_v1',
-  LOGS: 'kean_drew_logs_v1',
-  USER: 'kean_drew_user_v1',
-  BACKUP: 'kean_drew_backup_v1'
+const TABLES = {
+  EVENTS: 'db_events',
+  STAFF: 'db_staff',
+  LOGS: 'db_logs',
+  BACKUP: 'db_backup'
 };
 
-class LocalDB {
-  private async get<T>(key: string): Promise<T[]> {
-    const data = localStorage.getItem(key);
+class LocalEngine {
+  async query<T>(table: string): Promise<T[]> {
+    const data = localStorage.getItem(table);
     return data ? JSON.parse(data) : [];
   }
 
-  private async save<T>(key: string, data: T[]): Promise<void> {
-    localStorage.setItem(key, JSON.stringify(data));
+  async commit<T>(table: string, data: T[]): Promise<void> {
+    localStorage.setItem(table, JSON.stringify(data));
+    this.autoBackup();
   }
 
-  // Events
-  async getEvents(): Promise<StudioEvent[]> {
-    return this.get<StudioEvent>(STORAGE_KEYS.EVENTS);
-  }
-  async saveEvents(events: StudioEvent[]): Promise<void> {
-    await this.save(STORAGE_KEYS.EVENTS, events);
-    // Auto-create a rolling "last known good state" backup
-    this.createAutoBackup();
-  }
-
-  // Staff
-  async getStaff(): Promise<Staff[]> {
-    return this.get<Staff>(STORAGE_KEYS.STAFF);
-  }
-  async saveStaff(staff: Staff[]): Promise<void> {
-    await this.save(STORAGE_KEYS.STAFF, staff);
-  }
-
-  // Logs
-  async getLogs(): Promise<ActivityLog[]> {
-    return this.get<ActivityLog>(STORAGE_KEYS.LOGS);
-  }
-  async saveLogs(logs: ActivityLog[]): Promise<void> {
-    await this.save(STORAGE_KEYS.LOGS, logs);
-  }
-
-  // Auth/Session
-  getCurrentUser(): Staff | null {
-    const data = localStorage.getItem(STORAGE_KEYS.USER);
-    return data ? JSON.parse(data) : null;
-  }
-  setCurrentUser(user: Staff | null): void {
-    if (user) localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-    else localStorage.removeItem(STORAGE_KEYS.USER);
-  }
-
-  // Backup & Restore
-  private createAutoBackup() {
-    const state = {
-      events: localStorage.getItem(STORAGE_KEYS.EVENTS),
-      staff: localStorage.getItem(STORAGE_KEYS.STAFF),
-      logs: localStorage.getItem(STORAGE_KEYS.LOGS),
+  private autoBackup() {
+    const snapshot = {
+      events: localStorage.getItem(TABLES.EVENTS),
+      staff: localStorage.getItem(TABLES.STAFF),
+      logs: localStorage.getItem(TABLES.LOGS),
       timestamp: new Date().toISOString()
     };
-    localStorage.setItem(STORAGE_KEYS.BACKUP, JSON.stringify(state));
+    localStorage.setItem(TABLES.BACKUP, JSON.stringify(snapshot));
   }
 
+  async restore(): Promise<boolean> {
+    try {
+      const backup = localStorage.getItem(TABLES.BACKUP);
+      if (!backup) return false;
+      const data = JSON.parse(backup);
+      const { events, staff, logs } = data;
+      if (events) localStorage.setItem(TABLES.EVENTS, events);
+      if (staff) localStorage.setItem(TABLES.STAFF, staff);
+      if (logs) localStorage.setItem(TABLES.LOGS, logs);
+      return true;
+    } catch (e) {
+      console.error("Restore failed:", e);
+      return false;
+    }
+  }
+
+  // Added methods used in components/CalendarView.tsx
   async restoreLastState(): Promise<boolean> {
-    const backup = localStorage.getItem(STORAGE_KEYS.BACKUP);
-    if (!backup) return false;
-    const { events, staff, logs } = JSON.parse(backup);
-    if (events) localStorage.setItem(STORAGE_KEYS.EVENTS, events);
-    if (staff) localStorage.setItem(STORAGE_KEYS.STAFF, staff);
-    if (logs) localStorage.setItem(STORAGE_KEYS.LOGS, logs);
-    return true;
+    return this.restore();
   }
 
+  // Added methods used in components/ActivityLogsView.tsx
   exportData(): string {
-    const data = {
-      events: localStorage.getItem(STORAGE_KEYS.EVENTS),
-      staff: localStorage.getItem(STORAGE_KEYS.STAFF),
-      logs: localStorage.getItem(STORAGE_KEYS.LOGS),
-      version: '1.0'
+    const snapshot = {
+      events: localStorage.getItem(TABLES.EVENTS),
+      staff: localStorage.getItem(TABLES.STAFF),
+      logs: localStorage.getItem(TABLES.LOGS),
+      timestamp: new Date().toISOString()
     };
-    return JSON.stringify(data);
+    return JSON.stringify(snapshot);
   }
 
   async importData(json: string): Promise<boolean> {
     try {
       const data = JSON.parse(json);
-      if (data.events) localStorage.setItem(STORAGE_KEYS.EVENTS, data.events);
-      if (data.staff) localStorage.setItem(STORAGE_KEYS.STAFF, data.staff);
-      if (data.logs) localStorage.setItem(STORAGE_KEYS.LOGS, data.logs);
+      if (data.events) localStorage.setItem(TABLES.EVENTS, data.events);
+      if (data.staff) localStorage.setItem(TABLES.STAFF, data.staff);
+      if (data.logs) localStorage.setItem(TABLES.LOGS, data.logs);
       return true;
     } catch (e) {
+      console.error("Import failed:", e);
       return false;
     }
   }
 }
 
-export const db = new LocalDB();
+// Renamed from 'engine' to 'db' to match component imports
+export const db = new LocalEngine();
+export { TABLES };
