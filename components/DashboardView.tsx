@@ -2,16 +2,13 @@ import React, { useMemo } from 'react';
 import { StudioEvent, Staff } from '../types';
 import { Icons } from '../constants';
 import { 
-  BarChart, 
-  Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer, 
   AreaChart, 
-  Area,
-  Cell
+  Area
 } from 'recharts';
 
 interface DashboardProps {
@@ -68,7 +65,7 @@ const DashboardView: React.FC<DashboardProps> = ({ events, staff }) => {
     });
   }, [events]);
 
-  const StatCard = ({ label, value, icon: Icon, colorClass, gradient }: any) => (
+  const StatCard = ({ label, value, icon: Icon, colorClass }: any) => (
     <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-2xl hover:border-indigo-100 transition-all duration-500 group overflow-hidden relative">
       <div className={`absolute -right-4 -bottom-4 w-24 h-24 rounded-full bg-slate-50/50 group-hover:scale-150 transition-transform duration-700`} />
       <div className="flex items-center gap-6 relative z-10">
@@ -85,20 +82,32 @@ const DashboardView: React.FC<DashboardProps> = ({ events, staff }) => {
 
   return (
     <div className="space-y-10 animate-fadeIn">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Studio Pulse</h2>
+          <div className="flex items-center gap-3 mb-2">
+            <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Studio Pulse</h2>
+            <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live System
+            </div>
+          </div>
           <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] mt-2 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Live Financial Engine • {new Date().getFullYear()} Overview
+            Kean Drew Infrastructure • Fiscal Year {new Date().getFullYear()}
           </p>
         </div>
-        <div className="flex bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm gap-4 items-center">
-           <div className="text-right">
-              <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Growth</p>
-              <p className="text-sm font-black text-emerald-600">+12.5%</p>
+        
+        <div className="flex items-center gap-4 bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm">
+           <div className="px-4 text-right border-r border-slate-100">
+              <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Efficiency</p>
+              <p className="text-sm font-black text-indigo-600">98.4%</p>
            </div>
-           <Icons.Growth size={20} className="text-emerald-500" />
+           <div className="px-4">
+              <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Last Deploy</p>
+              <p className="text-sm font-black text-slate-900">Recently</p>
+           </div>
+           <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+             <Icons.Growth size={20} />
+           </div>
         </div>
       </div>
 
@@ -118,7 +127,6 @@ const DashboardView: React.FC<DashboardProps> = ({ events, staff }) => {
         <StatCard 
           label="Estimated Profit" 
           value={stats.netProfit} 
-          /* Fixed: Using Icons.Paid instead of Icons.CheckCircle2 */
           icon={Icons.Paid} 
           colorClass="bg-emerald-500 text-white" 
         />
@@ -127,7 +135,10 @@ const DashboardView: React.FC<DashboardProps> = ({ events, staff }) => {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-100/30">
           <div className="flex items-center justify-between mb-10">
-            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Performance Spectrum</h3>
+            <div>
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Performance Spectrum</h3>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Monthly Revenue vs Profit Analysis</p>
+            </div>
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-indigo-600" />
@@ -193,7 +204,7 @@ const DashboardView: React.FC<DashboardProps> = ({ events, staff }) => {
           <div className="space-y-5 overflow-y-auto max-h-[380px] pr-2 hide-scrollbar">
             {staff.length === 0 ? (
               <div className="text-center py-20">
-                <p className="text-slate-300 font-black uppercase tracking-[0.2em] text-[10px]">No Crew Assigned</p>
+                <p className="text-slate-300 font-black uppercase tracking-[0.2em] text-[10px]">No Crew Data Available</p>
               </div>
             ) : (
               staff.map(member => {

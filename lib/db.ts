@@ -1,11 +1,11 @@
-
 import { StudioEvent, Staff, ActivityLog } from '../types';
 
 const TABLES = {
   EVENTS: 'db_events',
   STAFF: 'db_staff',
   LOGS: 'db_logs',
-  BACKUP: 'db_backup'
+  BACKUP: 'db_backup',
+  MIGRATIONS: 'db_migrations'
 };
 
 class LocalEngine {
@@ -29,6 +29,27 @@ class LocalEngine {
     localStorage.setItem(TABLES.BACKUP, JSON.stringify(snapshot));
   }
 
+  async runMigration(name: string): Promise<boolean> {
+    // Ensure all tables exist
+    if (!localStorage.getItem(TABLES.EVENTS)) localStorage.setItem(TABLES.EVENTS, '[]');
+    if (!localStorage.getItem(TABLES.STAFF)) localStorage.setItem(TABLES.STAFF, '[]');
+    if (!localStorage.getItem(TABLES.LOGS)) localStorage.setItem(TABLES.LOGS, '[]');
+    
+    // Log the migration
+    const migrations = await this.query<any>(TABLES.MIGRATIONS);
+    const newMigration = {
+      id: Date.now().toString(),
+      name,
+      appliedAt: new Date().toISOString()
+    };
+    await this.commit(TABLES.MIGRATIONS, [...migrations, newMigration]);
+    return true;
+  }
+
+  async getMigrations(): Promise<any[]> {
+    return this.query(TABLES.MIGRATIONS);
+  }
+
   async restore(): Promise<boolean> {
     try {
       const backup = localStorage.getItem(TABLES.BACKUP);
@@ -45,12 +66,10 @@ class LocalEngine {
     }
   }
 
-  // Added methods used in components/CalendarView.tsx
   async restoreLastState(): Promise<boolean> {
     return this.restore();
   }
 
-  // Added methods used in components/ActivityLogsView.tsx
   exportData(): string {
     const snapshot = {
       events: localStorage.getItem(TABLES.EVENTS),
@@ -75,6 +94,5 @@ class LocalEngine {
   }
 }
 
-// Renamed from 'engine' to 'db' to match component imports
 export const db = new LocalEngine();
 export { TABLES };
